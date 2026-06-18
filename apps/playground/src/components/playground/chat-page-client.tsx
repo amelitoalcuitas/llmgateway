@@ -16,6 +16,7 @@ import {
 	type ChatSidebarHandle,
 } from "@/components/playground/chat-sidebar";
 import { ChatUI } from "@/components/playground/chat-ui";
+import { KnowledgeBaseDialog } from "@/components/playground/knowledge-base-dialog";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -351,6 +352,9 @@ export default function ChatPageClient({
 	});
 	const [imageCount, setImageCount] = useState<1 | 2 | 3 | 4>(1);
 	const [webSearchEnabled, setWebSearchEnabled] = useState(enableWebSearch);
+	const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = useState(false);
+	const [isKnowledgeBaseDialogOpen, setIsKnowledgeBaseDialogOpen] =
+		useState(false);
 	const [activeSkills, setActiveSkills] = useState<Skill[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -764,6 +768,7 @@ export default function ChatPageClient({
 					...(webSearchEnabled && supportsWebSearch
 						? { web_search: true }
 						: {}),
+					...(knowledgeBaseEnabled ? { knowledge_base_enabled: true } : {}),
 					...(enabledMcpServers.length > 0
 						? { mcp_servers: enabledMcpServers }
 						: {}),
@@ -790,6 +795,7 @@ export default function ChatPageClient({
 			imageCount,
 			selectedModel,
 			webSearchEnabled,
+			knowledgeBaseEnabled,
 			supportsWebSearch,
 			getEnabledMcpServers,
 			isTemporaryChat,
@@ -918,6 +924,10 @@ export default function ChatPageClient({
 
 		if (currentChatData.chat?.webSearch !== undefined) {
 			setWebSearchEnabled(currentChatData.chat.webSearch);
+		}
+
+		if (currentChatData.chat?.knowledgeBaseEnabled !== undefined) {
+			setKnowledgeBaseEnabled(currentChatData.chat.knowledgeBaseEnabled);
 		}
 
 		if (currentChatData.chat?.comparisonEnabled !== undefined) {
@@ -1120,6 +1130,7 @@ export default function ChatPageClient({
 					title,
 					model: selectedModel,
 					webSearch: webSearchEnabled,
+					knowledgeBaseEnabled,
 					comparisonEnabled,
 					organizationId: selectedOrganization?.id ?? chatOrg?.id,
 				},
@@ -1924,6 +1935,10 @@ export default function ChatPageClient({
 											setWebSearchEnabled={setWebSearchEnabled}
 											supportsWebSearch={supportsWebSearch}
 											webSearchEnabled={webSearchEnabled}
+											knowledgeBaseEnabled={knowledgeBaseEnabled}
+											onOpenKnowledgeBase={() =>
+												setIsKnowledgeBaseDialogOpen(true)
+											}
 											activeSkills={activeSkills}
 											onSelectSkill={(skill) =>
 												setActiveSkills((prev) =>
@@ -1971,6 +1986,10 @@ export default function ChatPageClient({
 										supportsWebSearch={supportsWebSearch}
 										webSearchEnabled={webSearchEnabled}
 										setWebSearchEnabled={setWebSearchEnabled}
+										knowledgeBaseEnabled={knowledgeBaseEnabled}
+										onOpenKnowledgeBase={() =>
+											setIsKnowledgeBaseDialogOpen(true)
+										}
 										onUserMessage={handleUserMessage}
 										onEditUserMessage={handleEditUserMessage}
 										isLoading={isLoading || isChatLoading}
@@ -2045,6 +2064,13 @@ export default function ChatPageClient({
 				organizationId={selectedOrganization?.id ?? chatOrg?.id}
 			/>
 			<AuthDialog open={showAuthDialog} returnUrl={returnUrl} />
+			<KnowledgeBaseDialog
+				open={isKnowledgeBaseDialogOpen}
+				onOpenChange={setIsKnowledgeBaseDialogOpen}
+				isPaid={false}
+				enabled={knowledgeBaseEnabled}
+				onEnabledChange={setKnowledgeBaseEnabled}
+			/>
 			<Dialog
 				open={pendingVideoModel !== null}
 				onOpenChange={(open) => {
