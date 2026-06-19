@@ -14,6 +14,7 @@ import {
 	timestamp,
 	unique,
 	uniqueIndex,
+	vector,
 } from "drizzle-orm/pg-core";
 import { customAlphabet } from "nanoid";
 
@@ -1577,6 +1578,7 @@ export const chat = pgTable(
 		webSearch: boolean().default(false),
 		pinned: boolean().notNull().default(false),
 		comparisonEnabled: boolean().notNull().default(false),
+		knowledgeBaseEnabled: boolean().notNull().default(false),
 		parentChatId: text().references((): AnyPgColumn => chat.id, {
 			onDelete: "cascade",
 		}),
@@ -1706,6 +1708,52 @@ export const chatSupportMessage = pgTable(
 			sql`${table.reaction} IS NULL OR ${table.reaction} IN ('like', 'dislike')`,
 		),
 	],
+);
+
+export const knowledgeDocument = pgTable(
+	"knowledge_document",
+	{
+		id: text().primaryKey().$defaultFn(shortid),
+		createdAt: timestamp().notNull().defaultNow(),
+		updatedAt: timestamp()
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		filename: text().notNull(),
+		mimeType: text().notNull().default("application/pdf"),
+		status: text({
+			enum: ["processing", "ready", "error"],
+		})
+			.notNull()
+			.default("processing"),
+		chunkCount: integer().notNull().default(0),
+		pageCount: integer().notNull().default(0),
+		fileSizeBytes: integer().notNull().default(0),
+		errorMessage: text(),
+		lastAccessedAt: timestamp().notNull().defaultNow(),
+	},
+	(table) => [
+		index("knowledge_document_user_id_idx").on(table.userId),
+		index("knowledge_document_last_accessed_at_idx").on(table.lastAccessedAt),
+	],
+);
+
+export const knowledgeChunk = pgTable(
+	"knowledge_chunk",
+	{
+		id: text().primaryKey().$defaultFn(shortid),
+		createdAt: timestamp().notNull().defaultNow(),
+		documentId: text()
+			.notNull()
+			.references(() => knowledgeDocument.id, { onDelete: "cascade" }),
+		content: text().notNull(),
+		chunkIndex: integer().notNull(),
+		embedding: vector({ dimensions: 1536 }),
+	},
+	(table) => [index("knowledge_chunk_document_id_idx").on(table.documentId)],
 );
 
 export const chatSupportReadStatus = pgTable(

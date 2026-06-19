@@ -34,6 +34,7 @@ const chatSchema = z.object({
 	webSearch: z.boolean(),
 	pinned: z.boolean(),
 	comparisonEnabled: z.boolean(),
+	knowledgeBaseEnabled: z.boolean(),
 	shareId: z.string().nullable(),
 	sharedAt: z.string().datetime().nullable(),
 	orgShares: z.array(z.object({ id: z.string(), organizationId: z.string() })),
@@ -121,6 +122,7 @@ const createChatSchema = z.object({
 	model: z.string().min(1),
 	webSearch: z.boolean().optional().default(false),
 	comparisonEnabled: z.boolean().optional().default(false),
+	knowledgeBaseEnabled: z.boolean().optional().default(false),
 	parentChatId: z.string().trim().min(1).optional(),
 	// Organization context the chat is created under (the dedicated Chat org for
 	// the "Chat plan" context, or a real org). Used to separate chat history.
@@ -131,6 +133,7 @@ const updateChatSchema = z.object({
 	title: z.string().min(1).max(200).optional(),
 	status: z.enum(["active", "archived"]).optional(),
 	pinned: z.boolean().optional(),
+	knowledgeBaseEnabled: z.boolean().optional(),
 });
 
 const forkChatResponseSchema = z.object({
@@ -259,6 +262,7 @@ chats.openapi(listChats, async (c) => {
 			webSearch: tables.chat.webSearch,
 			pinned: tables.chat.pinned,
 			comparisonEnabled: tables.chat.comparisonEnabled,
+			knowledgeBaseEnabled: tables.chat.knowledgeBaseEnabled,
 			shareId: tables.chatShare.id,
 			sharedAt: tables.chatShare.createdAt,
 			orgShares: sql<Array<{ id: string; organizationId: string }>>`COALESCE(
@@ -319,6 +323,7 @@ chats.openapi(listChats, async (c) => {
 		webSearch: chat.webSearch ?? false,
 		pinned: chat.pinned,
 		comparisonEnabled: chat.comparisonEnabled ?? false,
+		knowledgeBaseEnabled: chat.knowledgeBaseEnabled ?? false,
 		shareId: chat.shareId,
 		sharedAt: chat.sharedAt?.toISOString() ?? null,
 		orgShares: chat.orgShares ?? [],
@@ -399,6 +404,7 @@ chats.openapi(searchChats, async (c) => {
 				webSearch: tables.chat.webSearch,
 				pinned: tables.chat.pinned,
 				comparisonEnabled: tables.chat.comparisonEnabled,
+				knowledgeBaseEnabled: tables.chat.knowledgeBaseEnabled,
 				shareId: tables.chatShare.id,
 				sharedAt: tables.chatShare.createdAt,
 				orgShares: sql<Array<{ id: string; organizationId: string }>>`COALESCE(
@@ -459,6 +465,7 @@ chats.openapi(searchChats, async (c) => {
 		webSearch: chat.webSearch ?? false,
 		pinned: chat.pinned,
 		comparisonEnabled: chat.comparisonEnabled ?? false,
+		knowledgeBaseEnabled: chat.knowledgeBaseEnabled ?? false,
 		shareId: chat.shareId,
 		sharedAt: chat.sharedAt?.toISOString() ?? null,
 		orgShares: chat.orgShares ?? [],
@@ -584,6 +591,7 @@ chats.openapi(createChat, async (c) => {
 			organizationId: body.organizationId ?? null,
 			webSearch: body.webSearch ?? false,
 			comparisonEnabled: body.comparisonEnabled ?? false,
+			knowledgeBaseEnabled: body.knowledgeBaseEnabled ?? false,
 			parentChatId: body.parentChatId ?? null,
 		})
 		.returning();
@@ -598,6 +606,7 @@ chats.openapi(createChat, async (c) => {
 				webSearch: newChat.webSearch ?? false,
 				pinned: newChat.pinned,
 				comparisonEnabled: newChat.comparisonEnabled ?? false,
+				knowledgeBaseEnabled: newChat.knowledgeBaseEnabled ?? false,
 				shareId: null,
 				sharedAt: null,
 				orgShares: [],
@@ -663,6 +672,7 @@ chats.openapi(getChat, async (c) => {
 			webSearch: tables.chat.webSearch,
 			pinned: tables.chat.pinned,
 			comparisonEnabled: tables.chat.comparisonEnabled,
+			knowledgeBaseEnabled: tables.chat.knowledgeBaseEnabled,
 			createdAt: tables.chat.createdAt,
 			updatedAt: tables.chat.updatedAt,
 			shareId: tables.chatShare.id,
@@ -728,6 +738,7 @@ chats.openapi(getChat, async (c) => {
 				webSearch: chat.webSearch ?? false,
 				pinned: chat.pinned,
 				comparisonEnabled: chat.comparisonEnabled ?? false,
+				knowledgeBaseEnabled: chat.knowledgeBaseEnabled ?? false,
 				shareId: chat.shareId,
 				sharedAt: chat.sharedAt?.toISOString() ?? null,
 				orgShares: chat.orgShares ?? [],
@@ -864,6 +875,7 @@ chats.openapi(updateChat, async (c) => {
 			webSearch: updatedChat.webSearch ?? false,
 			pinned: updatedChat.pinned,
 			comparisonEnabled: updatedChat.comparisonEnabled ?? false,
+			knowledgeBaseEnabled: updatedChat.knowledgeBaseEnabled ?? false,
 			shareId: activeShare?.id ?? null,
 			sharedAt: activeShare?.createdAt.toISOString() ?? null,
 			orgShares: activeOrgShares.filter(
@@ -1548,6 +1560,7 @@ chats.openapi(forkChat, async (c) => {
 			title: tables.chat.title,
 			model: tables.chat.model,
 			webSearch: tables.chat.webSearch,
+			knowledgeBaseEnabled: tables.chat.knowledgeBaseEnabled,
 		})
 		.from(tables.chat)
 		.where(
@@ -1588,6 +1601,7 @@ chats.openapi(forkChat, async (c) => {
 				model: chat.model,
 				userId: user.id,
 				webSearch: chat.webSearch ?? false,
+				knowledgeBaseEnabled: chat.knowledgeBaseEnabled ?? false,
 			})
 			.returning();
 

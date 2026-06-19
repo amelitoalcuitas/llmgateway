@@ -556,6 +556,7 @@ interface ChatRequestBody {
 	is_image_gen?: boolean;
 	temporary_chat?: boolean;
 	skill_instructions?: string;
+	knowledge_base_enabled?: boolean;
 }
 
 interface McpClientWrapper {
@@ -584,6 +585,7 @@ export async function POST(req: Request) {
 		mcp_servers,
 		is_image_gen,
 		skill_instructions,
+		knowledge_base_enabled,
 	}: ChatRequestBody = body;
 
 	if (!messages || !Array.isArray(messages)) {
@@ -1133,9 +1135,60 @@ export async function POST(req: Request) {
 					.join(""),
 			)
 			.join("\n\n");
+
+		let ragContext: string | undefined;
+		if (knowledge_base_enabled) {
+			try {
+				const internalApiUrl =
+					process.env.API_BACKEND_URL ??
+					process.env.API_URL ??
+					"http://localhost:4002";
+				const lastUserMsg = [...messages]
+					.reverse()
+					.find((m) => m.role === "user");
+				const queryText = lastUserMsg?.parts
+					?.filter(
+						(p): p is Extract<typeof p, { type: "text" }> => p.type === "text",
+					)
+					?.map((p) => p.text)
+					.join(" ")
+					.trim();
+
+				if (queryText) {
+					const kbRes = await fetch(`${internalApiUrl}/knowledge/search`, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Cookie: req.headers.get("cookie") ?? "",
+						},
+						body: JSON.stringify({ query: queryText, limit: 5 }),
+					});
+					if (kbRes.ok) {
+						const { chunks } = (await kbRes.json()) as {
+							chunks: { content: string }[];
+						};
+						if (chunks.length > 0) {
+							const joined = chunks
+								.map((c, i) => `[Source ${i + 1}]\n${c.content}`)
+								.join("\n\n");
+							ragContext = [
+								"Relevant excerpts from the user's knowledge base (use if applicable):",
+								"---",
+								joined.slice(0, 12000),
+								"---",
+							].join("\n\n");
+						}
+					}
+				}
+			} catch {
+				// Silently degrade — KB failure must not block the chat
+			}
+		}
+
 		const resolvedSystem =
-			[existingSystem, skill_instructions].filter(Boolean).join("\n\n") ||
-			undefined;
+			[existingSystem, ragContext, skill_instructions]
+				.filter(Boolean)
+				.join("\n\n") || undefined;
 		const result = streamText({
 			model: llmgateway.chat(selectedModel, { usage: { include: true } }),
 			messages: await convertToModelMessages(

@@ -2186,6 +2186,88 @@ async function runApiKeyExpirationLoop() {
 	}
 }
 
+async function cleanupStaleKnowledgeDocuments(): Promise<void> {
+	const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+	const cutoff = new Date(Date.now() - thirtyDaysMs);
+
+	const staleDocs = await db
+		.select({
+			id: tables.knowledgeDocument.id,
+			userId: tables.knowledgeDocument.userId,
+		})
+		.from(tables.knowledgeDocument)
+		.where(
+			and(
+				eq(tables.knowledgeDocument.status, "ready"),
+				lt(tables.knowledgeDocument.lastAccessedAt, cutoff),
+			),
+		);
+
+	for (const doc of staleDocs) {
+		const activeApiKeys = await db
+			.select({ id: tables.apiKey.id })
+			.from(tables.userOrganization)
+			.innerJoin(
+				tables.organization,
+				eq(tables.userOrganization.organizationId, tables.organization.id),
+			)
+			.innerJoin(
+				tables.project,
+				eq(tables.organization.id, tables.project.organizationId),
+			)
+			.innerJoin(tables.apiKey, eq(tables.project.id, tables.apiKey.projectId))
+			.where(
+				and(
+					eq(tables.userOrganization.userId, doc.userId),
+					eq(tables.project.status, "active"),
+					eq(tables.apiKey.status, "active"),
+				),
+			)
+			.limit(1);
+
+		if (activeApiKeys.length > 0) {
+			continue;
+		}
+
+		await db
+			.delete(tables.knowledgeDocument)
+			.where(eq(tables.knowledgeDocument.id, doc.id));
+	}
+
+	if (staleDocs.length > 0) {
+		logger.info(
+			`Knowledge document retention: deleted ${staleDocs.length} stale document(s)`,
+		);
+	}
+}
+
+async function runKnowledgeRetentionLoop() {
+	activeLoops++;
+	const interval =
+		(process.env.NODE_ENV === "production" ? 6 * 60 * 60 : 60) * 1000; // 6h in prod, 1min in dev
+	logger.info(
+		`Starting knowledge retention loop (interval: ${interval / 1000}s)...`,
+	);
+
+	try {
+		while (!isStopRequested()) {
+			try {
+				await cleanupStaleKnowledgeDocuments();
+				await interruptibleSleep(interval);
+			} catch (error) {
+				logger.error(
+					"Error in knowledge retention loop",
+					error instanceof Error ? error : new Error(String(error)),
+				);
+				await interruptibleSleep(5000);
+			}
+		}
+	} finally {
+		activeLoops--;
+		logger.info("Knowledge retention loop stopped");
+	}
+}
+
 const MAX_WEBHOOK_ATTEMPTS = 5;
 const WEBHOOK_DELIVERY_BATCH_SIZE = 50;
 
@@ -2579,6 +2661,7 @@ export async function startWorker() {
 	void runEndUserSessionCleanupLoop();
 	void runApiKeyExpirationLoop();
 	void runWebhookDeliveryLoop();
+	void runKnowledgeRetentionLoop();
 	void runMarginPayoutLoop();
 	void runFollowUpEmailsLoop({
 		shouldStop: isStopRequested,

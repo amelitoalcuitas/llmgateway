@@ -4,6 +4,7 @@ import {
 	RefreshCcw,
 	Copy,
 	Brain,
+	BookOpen,
 	GlobeIcon,
 	AlertTriangle,
 	FileText,
@@ -251,6 +252,8 @@ interface ChatUIProps {
 	activeSkills?: Skill[];
 	onSelectSkill?: (skill: Skill) => void;
 	onRemoveSkill?: (skillId: string) => void;
+	knowledgeBaseEnabled?: boolean;
+	onOpenKnowledgeBase?: () => void;
 }
 
 function getRandomHeroSuggestionGroups(): Record<
@@ -1017,6 +1020,8 @@ export const ChatUI = ({
 	activeSkills = [],
 	onSelectSkill,
 	onRemoveSkill,
+	knowledgeBaseEnabled = false,
+	onOpenKnowledgeBase,
 }: ChatUIProps) => {
 	// OpenAI gpt-image-2 uses pixel dimensions and supports a quality dropdown
 	const isGptImage =
@@ -1700,6 +1705,13 @@ export const ChatUI = ({
 									<GlobeIcon size={16} />
 								</PromptInputButton>
 							)}
+							<PromptInputButton
+								variant={knowledgeBaseEnabled ? "default" : "ghost"}
+								onClick={onOpenKnowledgeBase}
+								title="Knowledge base"
+							>
+								<BookOpen size={16} />
+							</PromptInputButton>
 							<SkillPickerButton
 								onSelectSkill={onSelectSkill}
 								activeSkills={activeSkills}
